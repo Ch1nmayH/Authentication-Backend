@@ -1,14 +1,16 @@
 const express = require("express");
 const connectToDatabase = require("./db");
+const router = require("./routes/router");
 require("dotenv").config();
 
 const app = express();
 
 //middlewares
 app.use(express.json());
+app.use("/api", router);
 
 app.get("/", (req, res) => {
-  res.send("RUNNING");
+  res.send("Index page");
 });
 
 const start = async () => {
