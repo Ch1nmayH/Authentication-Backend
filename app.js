@@ -1,6 +1,9 @@
 const express = require("express");
 const connectToDatabase = require("./db");
+const startNodeMailer = require("./controllers/nodemailerConnect");
 const router = require("./routes/router");
+const verifyEmail = require("./routes/verify");
+
 require("dotenv").config();
 
 const app = express();
@@ -9,6 +12,8 @@ const app = express();
 app.use(express.json());
 app.use("/api", router);
 
+app.use("/api/verify", verifyEmail);
+
 app.get("/", (req, res) => {
   res.send("Index page");
 });
@@ -16,6 +21,7 @@ app.get("/", (req, res) => {
 const start = async () => {
   try {
     await connectToDatabase(process.env.DBURI);
+    startNodeMailer;
 
     console.log("Connected to the database");
 
