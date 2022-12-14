@@ -2,6 +2,7 @@ const User = require("../model/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { transporter } = require("../controllers/nodemailerConnect");
+const { updateOne } = require("../model/user");
 
 const handleError = (error) => {
   let errors = {};
@@ -48,8 +49,40 @@ const handleVerification = async ({ _id, email }, res) => {
     .catch((e) => {
       console.log(e.message);
     });
+};
 
-  // return verifyUrl;
+const resetPassword = async ({ _id, email }, res) => {
+  transporter.verify((error, result) => {
+    if (error) {
+      console.log(error);
+    }
+
+    if (result) {
+      console.log("ready to send message");
+      console.log(result);
+    }
+  });
+
+  let resetToken = await jwt.sign({ id: _id.toString() }, process.env.SECRET, {
+    expiresIn: 60 * 60,
+  });
+  let recipient = email;
+  console.log(recipient);
+
+  let resetMailOption = {
+    from: process.env.AUTH_EMAIL,
+    to: recipient,
+    subject: "Reset your Password ?",
+    html: `<p>Click on this <a href = 'http://localhost:8000/api/forgotPassword/${resetToken}'> Link </a> to reset your password</p>`,
+  };
+  transporter
+    .sendMail(resetMailOption)
+    .then(() => {
+      console.log("Reset Mail Has been sent");
+    })
+    .catch((e) => {
+      console.log(e.message);
+    });
 };
 
 module.exports.signup_post = async (req, res, next) => {
@@ -66,10 +99,6 @@ module.exports.signup_post = async (req, res, next) => {
     console.log(hashedPassword);
     let user = await User.create({ name, email, password: hashedPassword });
     handleVerification(user, res);
-    // let verifyUrl = await handleVerification(user, res);
-    // console.log(verifyUrl);
-    // res.send(verifyUrl);
-    // res.status(201).send(user);
     next();
   } catch (error) {
     let errorMessage = handleError(error);
@@ -87,7 +116,6 @@ module.exports.login_post = async (req, res, next) => {
     if (user) {
       let comparePassword = await bcrypt.compare(password, user.password);
       if (comparePassword) {
-        // res.redirect("/");
         if (user.verified) {
           return res.send(`${user.name}, you have successfully LoggedIn`);
         } else {
@@ -99,10 +127,59 @@ module.exports.login_post = async (req, res, next) => {
     }
     return res.send("Wrong Email id");
 
-    // res.status(201).send("Login here");
     next();
   } catch (error) {
     res.send(error.message);
     next();
+  }
+};
+
+module.exports.forgotPassword_post = async (req, res, next) => {
+  let email = req.body.email;
+  user = await User.findOne({ email });
+
+  if (user) {
+    resetPassword(user, res);
+    next();
+  } else {
+    return res.send("Invalid Email Id");
+    next();
+  }
+};
+
+module.exports.newPassword = async (req, res, next) => {
+  try {
+    let token = req.params;
+    let decode = jwt.verify(token.id, process.env.SECRET);
+
+    if (decode) {
+      res.send(`http://localhost:8000/api/resetPassword/${token.id}`);
+    } else {
+      return res.send("Invalid Link");
+    }
+  } catch (error) {
+    console.log(error.message);
+    return res.send("Invalid Link");
+  }
+};
+
+module.exports.resetPassword = async (req, res, next) => {
+  try {
+    let decode = await jwt.verify(req.params.id, process.env.SECRET);
+    let { password, confirmPassword } = req.body;
+    if (decode) {
+      if (password === confirmPassword) {
+        let hashPassword = await bcrypt.hash(password, 11);
+        let user = await User.updateOne(
+          { _id: decode.id },
+          { password: hashPassword }
+        );
+        res.send("Password Has been updated");
+      } else {
+        res.send("Passwords donot match");
+      }
+    }
+  } catch (error) {
+    res.send(error.message);
   }
 };
