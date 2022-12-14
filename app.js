@@ -1,6 +1,5 @@
 const express = require("express");
 const connectToDatabase = require("./db");
-const startNodeMailer = require("./controllers/nodemailerConnect");
 const router = require("./routes/router");
 const verifyEmail = require("./routes/verify");
 
@@ -10,18 +9,18 @@ const app = express();
 
 //middlewares
 app.use(express.json());
-app.use("/api", router);
 
-app.use("/api/verify", verifyEmail);
-
+//routes
 app.get("/", (req, res) => {
   res.send("Index page");
 });
 
+app.use("/api", router);
+app.use("/api/verify", verifyEmail);
+
 const start = async () => {
   try {
     await connectToDatabase(process.env.DBURI);
-    startNodeMailer;
 
     console.log("Connected to the database");
 
