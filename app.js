@@ -2,10 +2,12 @@ const express = require("express");
 const connectToDatabase = require("./db");
 const router = require("./routes/router");
 const verifyEmail = require("./routes/verify");
+const cors = require("cors");
 
 require("dotenv").config();
 
 const app = express();
+app.use(cors());
 
 //middlewares
 app.use(express.json());
