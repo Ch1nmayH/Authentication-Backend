@@ -17,7 +17,6 @@ const handleError = (error) => {
 
 const handleVerification = async ({ _id, email }, res) => {
   transporter.verify((error, result) => {
-    let a = 100;
     if (error) {
       console.log(error);
     }
@@ -96,14 +95,18 @@ module.exports.signup_post = async (req, res, next) => {
     }
 
     let hashedPassword = await bcrypt.hash(password, 10);
-    console.log(hashedPassword);
+    // console.log(hashedPassword);
     let user = await User.create({ name, email, password: hashedPassword });
     handleVerification(user, res);
+    res.send({
+      message: "successfully Created the account",
+      verification: "Verification email has been sent to your email id",
+    });
     next();
   } catch (error) {
     let errorMessage = handleError(error);
     console.log(errorMessage);
-    res.status(406).send(errorMessage);
+    res.status(201).send(errorMessage);
     next();
   }
 };
@@ -119,7 +122,10 @@ module.exports.login_post = async (req, res, next) => {
         if (user.verified) {
           return res.send(`${user.name}, you have successfully LoggedIn`);
         } else {
-          return res.send(`${user.name}, you need to verify your email`);
+          handleVerification(user, res);
+          return res.send({
+            message: "Verification email has been sent to your email id",
+          });
         }
       }
 
