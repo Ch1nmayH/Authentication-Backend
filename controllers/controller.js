@@ -120,7 +120,16 @@ module.exports.login_post = async (req, res, next) => {
       let comparePassword = await bcrypt.compare(password, user.password);
       if (comparePassword) {
         if (user.verified) {
-          return res.send(`${user.name}, you have successfully LoggedIn`);
+          let userToken = await jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.SECRET,
+            { expiresIn: "15m" }
+          );
+          return res.send({
+            message: `${user.name}, you have successfully LoggedIn`,
+            user,
+            token: userToken,
+          });
         } else {
           handleVerification(user, res);
           return res.send({
