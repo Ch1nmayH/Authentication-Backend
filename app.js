@@ -3,6 +3,7 @@ const connectToDatabase = require("./db");
 const router = require("./routes/router");
 const verifyEmail = require("./routes/verify");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
 require("dotenv").config();
 
@@ -11,6 +12,7 @@ app.use(cors());
 
 //middlewares
 app.use(express.json());
+app.use(cookieParser());
 
 //routes
 app.get("/", (req, res) => {
