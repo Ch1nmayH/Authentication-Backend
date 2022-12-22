@@ -125,11 +125,8 @@ module.exports.login_post = async (req, res, next) => {
             process.env.SECRET,
             { expiresIn: "15m" }
           );
-          return res.send({
-            message: `${user.name}, you have successfully LoggedIn`,
-            user,
-            token: userToken,
-          });
+          // res.status(201).cookie("token", userToken, { httpOnly: true });
+          return res.send({ token: userToken });
         } else {
           handleVerification(user, res);
           return res.send({
