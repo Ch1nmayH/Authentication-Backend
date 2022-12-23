@@ -86,6 +86,9 @@ const resetPassword = async ({ _id, email }, res) => {
 
 module.exports.signup_post = async (req, res, next) => {
   let { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(501).send("All the input field is required");
+  }
   try {
     let exist = await User.findOne({ email });
 
@@ -113,6 +116,13 @@ module.exports.signup_post = async (req, res, next) => {
 module.exports.login_post = async (req, res, next) => {
   let { email, password } = req.body;
 
+  if (!email) {
+    return res.status(501).send("Please enter the email id");
+  }
+  if (!password) {
+    return res.status(501).send("Please enter the Password");
+  }
+
   try {
     let user = await User.findOne({ email });
 
@@ -126,7 +136,11 @@ module.exports.login_post = async (req, res, next) => {
             { expiresIn: "15m" }
           );
           // res.status(201).cookie("token", userToken, { httpOnly: true });
-          return res.send({ token: userToken });
+
+          return res.send({
+            message: "Successfully Logged in",
+            token: userToken,
+          });
         } else {
           handleVerification(user, res);
           return res.send({
@@ -135,9 +149,9 @@ module.exports.login_post = async (req, res, next) => {
         }
       }
 
-      return res.send("Wrong Password");
+      return res.status(501).send("Invalid Password");
     }
-    return res.send("Wrong Email id");
+    return res.status(501).send("Invalid Email id");
 
     next();
   } catch (error) {
