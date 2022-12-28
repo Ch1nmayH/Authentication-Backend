@@ -4,14 +4,14 @@ const jwt = require("jsonwebtoken");
 const { transporter } = require("../controllers/nodemailerConnect");
 
 const handleError = (error) => {
-  let errors = {};
+  let errors = [];
   if (error.message.includes("user validation failed")) {
     Object.values(error.errors).forEach((property) => {
-      errors[property.properties.path] = property.properties.message;
+      errors.push(property.properties.message);
     });
   }
 
-  return errors;
+  return errors[0];
 };
 
 const handleVerification = async ({ _id, email }, res) => {
@@ -83,6 +83,13 @@ const resetPassword = async ({ _id, email }, res) => {
     });
 };
 
+module.exports.all_users = (req, res, next) => {
+  User.find({}, (error, user) => {
+    // console.log(user[0]);
+    res.send(user);
+  });
+};
+
 module.exports.signup_post = async (req, res, next) => {
   let { name, email, password } = req.body;
   try {
@@ -92,8 +99,7 @@ module.exports.signup_post = async (req, res, next) => {
       return res.status(406).send("Email already exists");
     }
 
-    if (!password)
-      throw Error(res.status(406).send("Please input all the fields"));
+    if (!password) return res.status(406).send("Please input all the fields");
     let hashedPassword = await bcrypt.hash(password, 10);
     let user = await User.create({
       name,
@@ -101,7 +107,7 @@ module.exports.signup_post = async (req, res, next) => {
       password: hashedPassword,
     });
     handleVerification(user, res);
-    res.send({
+    return res.send({
       message: "successfully Created the account",
       verification: "Verification email has been sent to your email id",
     });
@@ -109,7 +115,7 @@ module.exports.signup_post = async (req, res, next) => {
   } catch (error) {
     let errorMessage = handleError(error);
 
-    return res.send(errorMessage);
+    return res.status(406).send(errorMessage);
   }
 
   next();
@@ -130,24 +136,24 @@ module.exports.login_post = async (req, res, next) => {
     if (user) {
       let comparePassword = await bcrypt.compare(password, user.password);
       if (comparePassword) {
-        if (user.verified) {
-          let userToken = await jwt.sign(
-            { id: user._id, email: user.email },
-            process.env.SECRET,
-            { expiresIn: "15m" }
-          );
-          // res.status(201).cookie("token", userToken, { httpOnly: true });
-          user.password = undefined;
-          return res.status(201).cookie("token", userToken).send({
-            message: "Successfully Logged in",
-            token: userToken,
-          });
-        } else {
+        if (!user.verified) {
           handleVerification(user, res);
-          return res.send({
-            message: "Verification email has been sent to your email id",
-          });
+          return res
+            .status(406)
+            .send("Verification email has been sent to your email id");
         }
+        let userToken = await jwt.sign(
+          { id: user._id, email: user.email },
+          process.env.SECRET,
+          { expiresIn: "15m" }
+        );
+        // res.status(201).cookie("token", userToken, { httpOnly: true });
+        user.password = undefined;
+        return res.status(201).cookie("token", userToken).send({
+          message: "Successfully Logged in",
+          user,
+          token: userToken,
+        });
       }
 
       return res.status(406).send("Invalid Password");

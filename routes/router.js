@@ -13,4 +13,8 @@ router.get("/forgotPassword/:id", controller.newPassword);
 //here your entered password is hashed and updated in the database
 router.post("/resetPassword/:id", controller.resetPassword);
 
+//Get all users
+
+router.get("/members", controller.all_users);
+
 module.exports = router;
