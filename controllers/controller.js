@@ -2,7 +2,6 @@ const User = require("../model/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { transporter } = require("../controllers/nodemailerConnect");
-const { updateOne } = require("../model/user");
 
 const handleError = (error) => {
   let errors = {};
@@ -86,20 +85,21 @@ const resetPassword = async ({ _id, email }, res) => {
 
 module.exports.signup_post = async (req, res, next) => {
   let { name, email, password } = req.body;
-  if (!name || !email || !password) {
-    return res.status(501).send("All the input field is required");
-  }
   try {
     let exist = await User.findOne({ email });
 
     if (exist) {
-      console.log(process.env.CURRENTURL);
       return res.status(406).send("Email already exists");
     }
 
+    if (!password)
+      throw Error(res.status(406).send("Please input all the fields"));
     let hashedPassword = await bcrypt.hash(password, 10);
-    // console.log(hashedPassword);
-    let user = await User.create({ name, email, password: hashedPassword });
+    let user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
     handleVerification(user, res);
     res.send({
       message: "successfully Created the account",
@@ -108,19 +108,20 @@ module.exports.signup_post = async (req, res, next) => {
     next();
   } catch (error) {
     let errorMessage = handleError(error);
-    console.log(errorMessage);
-    res.status(201).send(errorMessage);
-    next();
+
+    return res.send(errorMessage);
   }
+
+  next();
 };
 module.exports.login_post = async (req, res, next) => {
   let { email, password } = req.body;
 
   if (!email) {
-    return res.status(501).send("Please enter the email id");
+    return res.status(406).send("Please enter the email id");
   }
   if (!password) {
-    return res.status(501).send("Please enter the Password");
+    return res.status(406).send("Please enter the Password");
   }
 
   try {
@@ -136,8 +137,8 @@ module.exports.login_post = async (req, res, next) => {
             { expiresIn: "15m" }
           );
           // res.status(201).cookie("token", userToken, { httpOnly: true });
-
-          return res.send({
+          user.password = undefined;
+          return res.status(201).cookie("token", userToken).send({
             message: "Successfully Logged in",
             token: userToken,
           });
@@ -149,9 +150,9 @@ module.exports.login_post = async (req, res, next) => {
         }
       }
 
-      return res.status(501).send("Invalid Password");
+      return res.status(406).send("Invalid Password");
     }
-    return res.status(501).send("Invalid Email id");
+    return res.status(406).send("Invalid Email id");
 
     next();
   } catch (error) {
