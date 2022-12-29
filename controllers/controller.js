@@ -84,9 +84,13 @@ const resetPassword = async ({ _id, email }, res) => {
 };
 
 module.exports.all_users = (req, res, next) => {
-  User.find({}, (error, user) => {
-    // console.log(user[0]);
-    res.send(user);
+  User.find({ verified: true }, (error, user) => {
+    user.map((user) => {
+      user.password = user.verified = user.__v = undefined;
+    });
+
+    console.log("aftter the middleware");
+    return res.send(user);
   });
 };
 
@@ -99,17 +103,16 @@ module.exports.signup_post = async (req, res, next) => {
       return res.status(406).send("Email already exists");
     }
 
-    if (!password) return res.status(406).send("Please input all the fields");
-    let hashedPassword = await bcrypt.hash(password, 10);
     let user = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password,
     });
-    handleVerification(user, res);
+    // handleVerification(user, res);
     return res.send({
       message: "successfully Created the account",
-      verification: "Verification email has been sent to your email id",
+      user,
+      // verification: "Verification email has been sent to your email id",
     });
     next();
   } catch (error) {
@@ -131,38 +134,40 @@ module.exports.login_post = async (req, res, next) => {
   }
 
   try {
-    let user = await User.findOne({ email });
+    let user = await User.login(email, password, res);
+    // console.log(user);
 
     if (user) {
-      let comparePassword = await bcrypt.compare(password, user.password);
-      if (comparePassword) {
-        if (!user.verified) {
-          handleVerification(user, res);
-          return res
-            .status(406)
-            .send("Verification email has been sent to your email id");
-        }
-        let userToken = await jwt.sign(
-          { id: user._id, email: user.email },
-          process.env.SECRET,
-          { expiresIn: "15m" }
-        );
-        // res.status(201).cookie("token", userToken, { httpOnly: true });
-        user.password = undefined;
-        return res.status(201).cookie("token", userToken).send({
+      if (!user.verified) {
+        handleVerification(user, res);
+        return res
+          .status(406)
+          .send("Verification email has been sent to your email id");
+      }
+
+      let userToken = await jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.SECRET,
+        { expiresIn: "15m" }
+      );
+      user.password = undefined;
+      return res
+        .status(201)
+        .cookie("token", userToken, {
+          maxAge: 1000 * 60 * 60 * 60 * 24,
+          httpOnly: true,
+          secure: false,
+        })
+        .send({
           message: "Successfully Logged in",
           user,
           token: userToken,
         });
-      }
-
-      return res.status(406).send("Invalid Password");
     }
-    return res.status(406).send("Invalid Email id");
 
     next();
   } catch (error) {
-    res.send(error.message);
+    res.status(406).send(error.message);
     next();
   }
 };
@@ -214,5 +219,28 @@ module.exports.resetPassword = async (req, res, next) => {
     }
   } catch (error) {
     res.send(error.message);
+  }
+};
+
+module.exports.logUserOut = async (req, res, next) => {
+  // return res.send("O");
+
+  try {
+    let token = req.cookies.token;
+    console.log(token);
+    let decodeToken = await jwt.verify(token, process.env.SECRET);
+    console.log(decodeToken);
+    let user = await User.findById(decodeToken.id);
+    if (!user) {
+      return res.status(406).send("You are not logged in");
+    }
+
+    res
+      .status(201)
+      .cookie("token", "", { maxAge: 1 })
+      .send("Successfully Logged out");
+    next();
+  } catch (error) {
+    return res.status(406).send("Invalid Cookie");
   }
 };
